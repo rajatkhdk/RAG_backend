@@ -5,3 +5,5 @@ redis
 sqlalchemy
 python-dotenv
 pydantic
+PyPDF2
+nltk
