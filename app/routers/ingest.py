@@ -1,6 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 import os
+from PyPDF2 import PdfReader
+from app.services.chunking import chunk_text
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
@@ -28,7 +30,13 @@ async def upload_file(file: UploadFile = File(...), strategy: str = "fixed"):
             text = f.read()
 
     elif ext == "pdf":
-        text = "PDF parsing not implemented yet"
+        reader = PdfReader(save_path)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "/n"
+
+    # Chunk text
+    chunks = chunk_text(text, strategy)
 
     # Clean up
     os.remove(save_path)
@@ -36,5 +44,6 @@ async def upload_file(file: UploadFile = File(...), strategy: str = "fixed"):
     return JSONResponse({
         "filename": file.filename,
         "strategy": strategy,
-        "text_preview": text[:200] # first 200 chars
+        "num_chunks" : len(chunks),
+        "chunks_preview": chunks[:3] # first 3 chunks
     })
