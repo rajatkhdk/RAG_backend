@@ -10,3 +10,4 @@ nltk
 qdrant-client
 sqlalchemy
 sentence-transformers
+requests
