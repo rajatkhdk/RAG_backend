@@ -2,6 +2,8 @@ import os
 from typing import List
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+import json
+import re
 
 GROK_API_KEY = os.getenv("GROK_API_KEY")
 GROK_MODEL = "llama-3.3-70b-versatile"
@@ -57,3 +59,47 @@ def generate_answer(question: str, context_chunks: List[str], chat_history: List
     response = llm_client.invoke(messages)
 
     return response.content.strip()
+
+def extract_json(prompt: str, retries: int = 2) -> dict:
+    """
+    Deterministic structured extraction using the LLM.
+    Always returns parsed JSON dict (never raw string).
+
+    Args:
+        prompt: extraction instruction
+        retries: retry attempts if JSON parsing fails
+
+    Returns:
+        dict
+    """
+
+    
+    system = SystemMessage(
+        content=(
+            "You are a strict information extraction system.\n"
+            "Return ONLY valid JSON.\n"
+            "No explanations, no markdown, no text outside JSON."
+        )
+    )
+
+    for _ in range(retries + 1):
+        response = llm_client.invoke(
+            [
+                system,
+                HumanMessage(content=prompt),
+            ],
+            temperature=0  # important for deterministic JSON
+        )
+
+        text = response.content.strip()
+
+        # remove ```json blocks if model adds them
+        text = re.sub(r"```json|```", "", text).strip()
+
+        try:
+            return json.loads(text)
+        except Exception:
+            continue
+
+    # fallback
+    return {}
