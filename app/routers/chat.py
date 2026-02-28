@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import List
 from app.services.vector_store import get_embedding, qdrant_client, COLLECTION_NAME
+from app.utils.llm import generate_answer
+from app.services.redis_memory import get_history, save_history
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.post("/query")
 def query_text(
+    session_id: str,
     question: str,
     top_k: int = Query(5, ge=1, le=20, description="Number of top chunks to retrieve")
 ):
@@ -15,12 +17,14 @@ def query_text(
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
     
+    history = get_history(session_id)
+
     # Step 1: Compute embedding
     query_vector = get_embedding(question)
-    print("length",len(query_vector))
-    print("Count:",qdrant_client.count(COLLECTION_NAME))
+    # print("length",len(query_vector))
+    # print("Count:",qdrant_client.count(COLLECTION_NAME))
 
-    print(qdrant_client.get_collections())
+    # print(qdrant_client.get_collections())
 
     # Step 2: Search Qdrant for top_k similar chunks
     try:
@@ -35,7 +39,7 @@ def query_text(
         print("Quadrant query failed:",e)
         return {"error": str(e)}
 
-    print("Result \n:",results)
+    # print("Result \n:",results)
 
     # Step 3: Prepare readable response
     top_chunks = []
@@ -63,8 +67,19 @@ def query_text(
     #         "chunk_index": payload.get("chunk_index")
     #     })
 
+    # Combine context
+    context = "\n\n".join([chunk["text"] for chunk in top_chunks])
+
+    #Generate answer using Grok LLaMa
+    answer = generate_answer(question, context, history)
+    
+    # Save updated conversation
+    history.append({"role": "user", "content": question})
+    history.append({"role": "ai", "content": answer})
+    save_history(session_id, history)
+    
     return {
         "question": question,
-        "top_k": top_k,
+        "answer": answer,
         "retrieved_chunks": top_chunks
     }

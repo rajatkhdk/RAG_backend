@@ -10,4 +10,6 @@ nltk
 qdrant-client
 sqlalchemy
 sentence-transformers
-requests
+langchain-core
+langchain-groq
+httpx
