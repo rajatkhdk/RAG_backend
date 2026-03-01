@@ -8,10 +8,15 @@ from app.services.redis_memory import get_history, save_history
 from app.db.session import get_db
 from app.db.booking_model import Booking
 import json
+from uuid import uuid4
+from fastapi import Cookie
+from app.services.jwt import decode_session_token, create_session_token
+from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/conversational", tags=["Conversational"])
 
 class ChatBookingResponse(BaseModel):
+    session_id: str
     question: Optional[str]
     answer: Optional[str]
     retrieved_chunks: Optional[list] = None
@@ -21,32 +26,54 @@ class ChatBookingResponse(BaseModel):
     time: Optional[str] = None
     confirmation: Optional[str] = None
 
+class ChatQueryRequest(BaseModel):
+    message: str
+    session_id: str | None = Cookie(default=None) # optional, auto-generated if not provided
+
 @router.post("/query", response_model=ChatBookingResponse)
 def chat_query(
-    session_id: str,
+    # message: str,
+    # session_id: Optional[str] = Query(
+    #     default=None,
+    #     description="Internal session ID. Auto-generated if not provided.",
+    #     include_in_schema=False
+    # ),
     message: str,
+    session_token: str | None = Cookie(default=None, include_in_schema=False),
     top_k: int = Query(5, ge=1, le=20, description="Number of top chunks to retrieve"),
     db: Session = Depends(get_db)
 ):
+
     """
     Unified endpoint that handles both RAG queries and booking requests.
+    Auto-generate session_id if not provided.
     """
     if not message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     
+    if session_token:
+        session_id = decode_session_token(session_token)
+    else:
+        session_id = str(uuid4())
+        session_token = create_session_token(session_id)
+
+    # # auto create session
+    # if session_id is None:
+    #     session_id = str(uuid4())
+
     # Load conversation history
     history = get_history(session_id)
 
     # --- Step 1: Check if the message is a booking request ---
-    intent_prompt = f"""
-You are an intent classification system.
-Decide whether this message is a booking request or a general query.
-Respond ONLY with 'BOOKING' or 'GENERAL'.
+#     intent_prompt = f"""
+# You are an intent classification system.
+# Decide whether this message is a booking request or a general query.
+# Respond ONLY with 'BOOKING' or 'GENERAL'.
 
-Message: "{message}"
-"""
+# Message: "{message}"
+# """
     intent = extract_intent(message)  # Use LLM to classify intent
-    print("Intent:",intent)
+    # print("Intent:",intent)
     ## Normalize to string safely
     if isinstance(intent, dict):
         intent_str = intent.get("intent", "")  # default to empty string if missing
@@ -91,7 +118,8 @@ Message: {message}
 
         confirmation = f"Booking received for {data.get('name', 'Unknown')}"
 
-        return ChatBookingResponse(
+        response = ChatBookingResponse(
+            session_id=session_id,
             question=message,
             answer=confirmation,
             retrieved_chunks=[],
@@ -114,7 +142,7 @@ Message: {message}
                 with_payload=True
             ).points
         except Exception as e:
-            return {"error": str(e)}
+            return HTTPException(status_code=500, detail=str(e))
 
         top_chunks = []
         for res in results:
@@ -138,8 +166,15 @@ Message: {message}
         history.append({"role": "ai", "content": answer})
         save_history(session_id, history)
 
-        return ChatBookingResponse(
+        response = ChatBookingResponse(
+            session_id=session_id,
             question=message,
             answer=answer,
             retrieved_chunks=top_chunks
         )
+
+    # Wrap it in a JSONResponse to set cookies
+    response = JSONResponse(content=response.model_dump())
+    response.set_cookie(key="session_token", value=session_token, httponly=True)
+
+    return response
