@@ -21,10 +21,15 @@ def query_text(
 
     # Step 1: Compute embedding
     query_vector = get_embedding(question)
-    # print("length",len(query_vector))
-    # print("Count:",qdrant_client.count(COLLECTION_NAME))
+    print("length",len(query_vector))
+    print("quadrant_client:",qdrant_client.get_collections().collections[0])
+    print("Count:",qdrant_client.count(COLLECTION_NAME))
 
-    # print(qdrant_client.get_collections())
+    print("Collection:",qdrant_client.get_collections())
+
+    collection_info = qdrant_client.get_collection(COLLECTION_NAME)
+    print("Points count:", collection_info.points_count)
+    print("Indexed vectors:", collection_info.indexed_vectors_count)
 
     # Step 2: Search Qdrant for top_k similar chunks
     try:
@@ -39,7 +44,7 @@ def query_text(
         print("Quadrant query failed:",e)
         return {"error": str(e)}
 
-    # print("Result \n:",results)
+    print("Result \n:",results)
 
     # Step 3: Prepare readable response
     top_chunks = []

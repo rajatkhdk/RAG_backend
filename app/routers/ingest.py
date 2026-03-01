@@ -17,7 +17,7 @@ ALLOWED_EXTENSIONS = ["txt","pdf"]
 async def upload_file(file: UploadFile = File(...), strategy: str = "fixed", db: Session = Depends(get_db)):
     # Validate strategy
     if strategy not in ["fixed", "sentence"]:
-        raise HTTPException(status_code=400, detail="Invalid chunking strategy")
+        raise HTTPException(status_code=400, detail="Invalid chunking strategy, must be either fixed or sentence")
     
     # Validate file extension
     ext = file.filename.split(".")[-1].lower()

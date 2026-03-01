@@ -4,8 +4,9 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import json
 import re
+from app.config import settings
 
-GROK_API_KEY = os.getenv("GROK_API_KEY")
+GROK_API_KEY = settings.GROK_API_KEY
 GROK_MODEL = "llama-3.3-70b-versatile"
 
 # Initialize the LLM client once
@@ -103,3 +104,51 @@ def extract_json(prompt: str, retries: int = 2) -> dict:
 
     # fallback
     return {}
+
+# app/utils/llm.py
+
+def extract_intent(message: str, retries: int = 2) -> str:
+    """
+    Classify the intent of a message as either 'BOOKING' or 'GENERAL'.
+    Returns a clean string: "BOOKING" or "GENERAL".
+
+    Args:
+        message: User's message to classify
+        retries: Number of retries if the LLM fails to return a valid intent
+
+    Returns:
+        str: "BOOKING" or "GENERAL"
+    """
+
+    intent_prompt = f"""
+You are an intent classification system.
+Decide whether this message is a booking request or a general query.
+Respond ONLY with 'BOOKING' or 'GENERAL'.
+
+Message: "{message}"
+"""
+
+    system = SystemMessage(
+        content=(
+            "You are a strict intent classifier.\n"
+            "Respond ONLY with either BOOKING or GENERAL.\n"
+            "No explanations, no markdown, no extra text."
+        )
+    )
+
+    for _ in range(retries + 1):
+        response = llm_client.invoke(
+            [
+                system,
+                HumanMessage(content=intent_prompt),
+            ],
+            temperature=0  # deterministic
+        )
+
+        intent = response.content.strip().upper()
+
+        if intent in ["BOOKING", "GENERAL"]:
+            return intent
+
+    # fallback if LLM fails
+    return "GENERAL"

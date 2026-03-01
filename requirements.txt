@@ -13,3 +13,4 @@ sentence-transformers
 langchain-core
 langchain-groq
 httpx
+pydantic_settings

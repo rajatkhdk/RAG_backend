@@ -3,15 +3,15 @@ from qdrant_client.models import PointStruct, Distance, VectorParams
 from sentence_transformers import SentenceTransformer
 from typing import List
 import uuid
-from app.config import Settings
+from app.config import settings
 
 # Load embedding model (once)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # Initialize Qdrant client
 qdrant_client = QdrantClient(
-    host=Settings.QDRANT_HOST, 
-    port=Settings.QDRANT_PORT
+    host=settings.QDRANT_HOST, 
+    port=settings.QDRANT_PORT
 )
 
 # Ensure collection exists
@@ -58,9 +58,12 @@ def store_chunks_in_qdrant(chunks: List[str], filename: str, strategy: str):
             )
         )
 
+    # print("Points",points[2])
+
     qdrant_client.upsert(
         collection_name=COLLECTION_NAME,
-        points=points
+        points=points,
+        wait=True
     )
 
     return len(points)
