@@ -26,6 +26,6 @@ def health():
     return {"status": "ok"}
 
 app.include_router(ingest.router)
-app.include_router(chat.router)
-app.include_router(booking.router)
+# app.include_router(chat.router)
+# app.include_router(booking.router)
 app.include_router(conversational.router)
