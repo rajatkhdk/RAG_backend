@@ -15,7 +15,10 @@ This project demonstrates LLM engineering + backend system design, not just a ch
 
 1. **Document Ingestion**
 - Upload pdf/txt
-- Chunk text
+- Multiple chunking strategy:
+    - fixed : fixed token/character windows
+    - semantic : embedding-based semantic boundaries
+    - recursive : structure-aware hierarchical splitting
 - Generate embeddings
 - Store vectors in Qdrant
 - Store metadata in SQL
@@ -24,9 +27,10 @@ This project demonstrates LLM engineering + backend system design, not just a ch
 - Retrieves top-k relevant chunks
 - Feeds context to LLM
 - Maintain chat history using Redis
+- Multi-turn conversation support
 
 3. **Smart Intent Detection**
-- Classifies:
+- Classifies user queries into:
     - General: normal RAG response
     - Booking: extract structured details
 
@@ -88,19 +92,19 @@ Make sure Qdrant and Redis are running
 
 in swagger: http://127.0.0.1:8000/docs
 
-1. POST /ingest/upload
+1. POST /ingest/upload <br>
 Upload pdf/txt and index into vector DB.
 
 ```code
-strategy: fixed or sentence
-file: Choose/upload .pdf/.txt file
+strategy: fixed or semantic or recursive
+file: .pdf or .txt file
 ```
 
 2. POST /conversational/query
 
 ```code
-session_id: text
 message: question
+top_k: int(3 or 5) # top chunks to retrieve
 ```
 
 # Demo flow
