@@ -16,8 +16,8 @@ ALLOWED_EXTENSIONS = ["txt","pdf"]
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...), strategy: str = "fixed", db: Session = Depends(get_db)):
     # Validate strategy
-    if strategy not in ["fixed", "sentence"]:
-        raise HTTPException(status_code=400, detail="Invalid chunking strategy, must be either fixed or sentence")
+    if strategy not in ["fixed", "semantic", "recursive"]:
+        raise HTTPException(status_code=400, detail="Invalid chunking strategy, must be either fixed, semantic or recursive")
     
     # Validate file extension
     ext = file.filename.split(".")[-1].lower()
@@ -46,6 +46,10 @@ async def upload_file(file: UploadFile = File(...), strategy: str = "fixed", db:
 
     # Clean up
     os.remove(save_path)
+
+    print(f"chunk_strategy: {strategy}, chunks: {chunks}")
+    print("Chunk length:",len(chunks))
+    print("\n\n\n",sum(len(c) for c in chunks)/len(chunks))
 
     # Store metadata in SQL
     for idx, chunk in enumerate(chunks):

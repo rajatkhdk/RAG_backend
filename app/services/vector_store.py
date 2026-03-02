@@ -4,9 +4,12 @@ from sentence_transformers import SentenceTransformer
 from typing import List
 import uuid
 from app.config import settings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # Load embedding model (once)
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
 # Initialize Qdrant client
 qdrant_client = QdrantClient(
@@ -36,7 +39,7 @@ def get_embedding(text: str) -> List[float]:
     """
     Generate embedding locally
     """
-    return model.encode(text).tolist()
+    return model.embed_query(text)
 
 # Store chunks
 def store_chunks_in_qdrant(chunks: List[str], filename: str, strategy: str):
